@@ -1,10 +1,11 @@
 require 'cinch'
 require 'data_mapper'
+require_relative '../admin.rb'
 
 class Team
 	include DataMapper::Resource
 
-	has n, :members
+	has n, :members, constraint: :destroy
 
 	property :name, String, unique: true, key: true
 end
@@ -20,6 +21,7 @@ end
 
 class FeatureCrews
 	include Cinch::Plugin
+	include Admin_Helper
 
 	match /team add ([A-Za-z]+) ([A-Za-z0-9\-]+)/, method: :add_member
 	match /team remove ([A-Za-z]+) ([A-Za-z0-9\-]+)/, method: :remove_member
@@ -29,8 +31,8 @@ class FeatureCrews
 	match /team list$/, method: :list_teams
 	match /team help/, method: :help
 	match /team$/, method: :help
-	match /^([A-Za-z]+?)s?[,:$]/, method: :list_members, use_prefix: false
 	match /^((has|does)\s*)?(any|every)(one|body)/, method: :list_everyone, use_prefix: false
+	match /^([A-Za-z]+?)s?[,:$]/, method: :list_members, use_prefix: false
 
 	def help(m)
 		m.reply "Usage: !team (add|remove) <team> <nickname>"
@@ -39,21 +41,23 @@ class FeatureCrews
 	end
 
 	def create_team(m, team_name)
+		return unless is_admin?(m.user)
 		begin
 			team = Team.create(:name => team_name.downcase.strip)
-			m.reply "Created a new team!"
-			m.reply "Add yourself using !team add #{team_name} #{m.user.nick}"
+			m.safe_reply "Created a new team, Team #{team_name.capitalize}!"
+			m.safe_reply "Add yourself using !team add #{team_name} #{m.user.nick}"
 		rescue => error
 			m.reply "Uh-oh spaghetti-o's"
 		end
 	end
 
 	def delete_team(m, team_name)
+		return unless is_admin?(m.user)
 		begin
-			team = Team.get(team_name.downcase)
-			team.destroy
+			Team.get(team_name.downcase).destroy
 			m.reply "Team deleted :-("
-		rescue
+		rescue => error
+			puts error
 			m.reply "Uh-oh spaghetti-o's"
 		end
 	end
@@ -62,7 +66,7 @@ class FeatureCrews
 		begin
 			team = Team.get(team_name.downcase)
 			member = Member.create(:nick => member_name, :team => team)
-			m.reply "Added #{member_name} to #{team_name}"
+			m.safe_reply "Added #{member_name} to Team #{team_name.capitalize}"
 		rescue
 			m.reply "Uh-oh spaghetti-o's"
 		end
@@ -72,11 +76,11 @@ class FeatureCrews
 		begin
 			member = Team.get(team_name.downcase).members.first(:nick => member_name)
 			if member.nil?
-				m.reply "Couldn't find #{member_name} in Team #{team_name.capitalize}"
+				m.safe_reply "Couldn't find #{member_name} in Team #{team_name.capitalize}"
 				return
 			end
 			member.destroy
-			m.reply "#{member_name} has been removed from Team #{team_name.capitalize}"
+			m.safe_reply "#{member_name} has been removed from Team #{team_name.capitalize}"
 		rescue
 			m.reply "Uh-oh spaghetti-o's"
 		end
@@ -89,7 +93,7 @@ class FeatureCrews
 			members.each do |member|
 				nicks << member.nick
 			end
-			m.reply nicks.join(', ')
+			m.safe_reply nicks.join(', ')
 		rescue
 			#do nothing, because this listens to conversations too!
 		end
@@ -102,7 +106,7 @@ class FeatureCrews
 			teams.each do |team|
 				names << "Team #{team.name.capitalize}"
 			end
-			m.reply names.join(', ')
+			m.safe_reply names.join(', ')
 		rescue
 			m.reply "Uh-oh spaghetti-o's"
 		end
