@@ -31,9 +31,7 @@ class FeatureCrews
 	match /team list$/, method: :list_teams
 	match /team help/, method: :help
 	match /team$/, method: :help
-	match /^everyone[,:$]/, method: :list_everyone, use_prefix: false
-	match /^everybody[,:$]/, method: :list_everyone, use_prefix: false
-	match /^anyone[,:$]/, method: :list_everyone, use_prefix: false
+	match /^((has|does)\s*)?(any|every)(one|body)/, method: :list_everyone, use_prefix: false
 	match /^([A-Za-z]+?)s?[,:$]/, method: :list_members, use_prefix: false
 
 	def help(m)
